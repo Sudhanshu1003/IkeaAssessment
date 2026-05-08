@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WarehouseRepository.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">java-code-assignment</a> &gt; <a href="index.source.html" class="el_package">com.fulfilment.application.monolith.warehouses.adapters.database</a> &gt; <span class="el_source">WarehouseRepository.java</span></div><h1>WarehouseRepository.java</h1><pre class="source lang-java linenums">package com.fulfilment.application.monolith.warehouses.adapters.database;
+
+import com.fulfilment.application.monolith.warehouses.domain.models.Warehouse;
+import com.fulfilment.application.monolith.warehouses.domain.ports.WarehouseStore;
+import io.quarkus.hibernate.orm.panache.PanacheRepository;
+import io.quarkus.panache.common.Parameters;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.transaction.Transactional;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@ApplicationScoped
+<span class="nc" id="L14">public class WarehouseRepository implements WarehouseStore, PanacheRepository&lt;DbWarehouse&gt; {</span>
+
+  @Override
+  @Transactional
+  public List&lt;Warehouse&gt; getAll() {
+<span class="nc" id="L19">    return listAll().stream()</span>
+<span class="nc" id="L20">        .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L21">        .toList();</span>
+  }
+
+  @Override
+  @Transactional
+  public void create(Warehouse warehouse) {
+    // Create new DbWarehouse entity
+<span class="nc" id="L28">    DbWarehouse dbWarehouse = new DbWarehouse();</span>
+<span class="nc" id="L29">    dbWarehouse.businessUnitCode = warehouse.businessUnitCode;</span>
+<span class="nc" id="L30">    dbWarehouse.location = warehouse.location;</span>
+<span class="nc" id="L31">    dbWarehouse.capacity = warehouse.capacity;</span>
+<span class="nc" id="L32">    dbWarehouse.stock = warehouse.stock;</span>
+<span class="nc bnc" id="L33" title="All 2 branches missed.">    dbWarehouse.createdAt = warehouse.createdAt != null ? warehouse.createdAt : LocalDateTime.now();</span>
+<span class="nc" id="L34">    dbWarehouse.archivedAt = warehouse.archivedAt;</span>
+    
+    // Persist the entity
+<span class="nc" id="L37">    persist(dbWarehouse);</span>
+<span class="nc" id="L38">  }</span>
+
+  @Override
+  @Transactional
+  public void update(Warehouse warehouse) {
+    // Find existing warehouse
+<span class="nc" id="L44">    DbWarehouse dbWarehouse = find(&quot;businessUnitCode&quot;, warehouse.businessUnitCode).firstResult();</span>
+<span class="nc bnc" id="L45" title="All 2 branches missed.">    if (dbWarehouse == null) {</span>
+<span class="nc" id="L46">      throw new IllegalArgumentException(</span>
+          &quot;Warehouse with business unit code '&quot; + warehouse.businessUnitCode + &quot;' does not exist&quot;);
+    }
+    
+    // Update fields
+<span class="nc" id="L51">    dbWarehouse.location = warehouse.location;</span>
+<span class="nc" id="L52">    dbWarehouse.capacity = warehouse.capacity;</span>
+<span class="nc" id="L53">    dbWarehouse.stock = warehouse.stock;</span>
+<span class="nc" id="L54">    dbWarehouse.archivedAt = warehouse.archivedAt;</span>
+    
+    // Use EntityManager to merge the entity
+<span class="nc" id="L57">    getEntityManager().merge(dbWarehouse);</span>
+<span class="nc" id="L58">    getEntityManager().flush();</span>
+<span class="nc" id="L59">  }</span>
+
+  @Override
+  @Transactional
+  public void remove(Warehouse warehouse) {
+    // Validation: warehouse must not be null
+<span class="nc bnc" id="L65" title="All 2 branches missed.">    if (warehouse == null) {</span>
+<span class="nc" id="L66">      throw new IllegalArgumentException(&quot;Warehouse cannot be null&quot;);</span>
+    }
+    
+    // Validation: business unit code must not be null or empty
+<span class="nc bnc" id="L70" title="All 4 branches missed.">    if (warehouse.businessUnitCode == null || warehouse.businessUnitCode.trim().isEmpty()) {</span>
+<span class="nc" id="L71">      throw new IllegalArgumentException(&quot;Business unit code cannot be null or empty&quot;);</span>
+    }
+    
+    // Find existing warehouse
+<span class="nc" id="L75">    DbWarehouse dbWarehouse = find(&quot;businessUnitCode&quot;, warehouse.businessUnitCode).firstResult();</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">    if (dbWarehouse == null) {</span>
+<span class="nc" id="L77">      throw new IllegalArgumentException(</span>
+          &quot;Warehouse with business unit code '&quot; + warehouse.businessUnitCode + &quot;' does not exist&quot;);
+    }
+    
+    // Delete the warehouse
+<span class="nc" id="L82">    delete(dbWarehouse);</span>
+<span class="nc" id="L83">  }</span>
+  
+  @Override
+  public Warehouse findByBusinessUnitCode(String buCode) {
+    // Validation: business unit code must not be null or empty
+<span class="nc bnc" id="L88" title="All 4 branches missed.">    if (buCode == null || buCode.trim().isEmpty()) {</span>
+<span class="nc" id="L89">      return null;</span>
+    }
+    
+<span class="nc" id="L92">    DbWarehouse dbWarehouse = find(&quot;businessUnitCode&quot;, buCode).firstResult();</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">    return dbWarehouse != null ? dbWarehouse.toWarehouse() : null;</span>
+  }
+  
+  // Search methods for bonus functionality
+  @Transactional
+  public List&lt;Warehouse&gt; findByLocation(String location) {
+<span class="nc bnc" id="L99" title="All 4 branches missed.">    if (location == null || location.trim().isEmpty()) {</span>
+<span class="nc" id="L100">      return List.of();</span>
+    }
+<span class="nc" id="L102">    return list(&quot;location&quot;, location).stream()</span>
+<span class="nc" id="L103">        .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L104">        .toList();</span>
+  }
+  
+  @Transactional
+  public List&lt;Warehouse&gt; findByCapacityBetween(Integer minCapacity, Integer maxCapacity) {
+<span class="nc bnc" id="L109" title="All 6 branches missed.">    if (minCapacity != null &amp;&amp; maxCapacity != null &amp;&amp; minCapacity &gt; maxCapacity) {</span>
+<span class="nc" id="L110">      return List.of();</span>
+    }
+<span class="nc bnc" id="L112" title="All 4 branches missed.">    if (minCapacity == null &amp;&amp; maxCapacity == null) {</span>
+<span class="nc" id="L113">      return listAll().stream()</span>
+<span class="nc" id="L114">          .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L115">          .toList();</span>
+    }
+<span class="nc bnc" id="L117" title="All 2 branches missed.">    if (minCapacity == null) {</span>
+<span class="nc" id="L118">      return list(&quot;capacity &lt;= ?1&quot;, maxCapacity).stream()</span>
+<span class="nc" id="L119">          .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L120">          .toList();</span>
+    }
+<span class="nc bnc" id="L122" title="All 2 branches missed.">    if (maxCapacity == null) {</span>
+<span class="nc" id="L123">      return list(&quot;capacity &gt;= ?1&quot;, minCapacity).stream()</span>
+<span class="nc" id="L124">          .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L125">          .toList();</span>
+    }
+<span class="nc" id="L127">    return list(&quot;capacity between ?1 and ?2&quot;, minCapacity, maxCapacity).stream()</span>
+<span class="nc" id="L128">        .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L129">        .toList();</span>
+  }
+  
+  @Transactional
+  public List&lt;Warehouse&gt; findByStockBetween(Integer minStock, Integer maxStock) {
+<span class="nc bnc" id="L134" title="All 6 branches missed.">    if (minStock != null &amp;&amp; maxStock != null &amp;&amp; minStock &gt; maxStock) {</span>
+<span class="nc" id="L135">      return List.of();</span>
+    }
+<span class="nc bnc" id="L137" title="All 4 branches missed.">    if (minStock == null &amp;&amp; maxStock == null) {</span>
+<span class="nc" id="L138">      return listAll().stream()</span>
+<span class="nc" id="L139">          .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L140">          .toList();</span>
+    }
+<span class="nc bnc" id="L142" title="All 2 branches missed.">    if (minStock == null) {</span>
+<span class="nc" id="L143">      return list(&quot;stock &lt;= ?1&quot;, maxStock).stream()</span>
+<span class="nc" id="L144">          .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L145">          .toList();</span>
+    }
+<span class="nc bnc" id="L147" title="All 2 branches missed.">    if (maxStock == null) {</span>
+<span class="nc" id="L148">      return list(&quot;stock &gt;= ?1&quot;, minStock).stream()</span>
+<span class="nc" id="L149">          .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L150">          .toList();</span>
+    }
+<span class="nc" id="L152">    return list(&quot;stock between ?1 and ?2&quot;, minStock, maxStock).stream()</span>
+<span class="nc" id="L153">        .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L154">        .toList();</span>
+  }
+  
+  @Transactional
+  public List&lt;Warehouse&gt; findByArchived(Boolean archived) {
+<span class="nc bnc" id="L159" title="All 2 branches missed.">    if (archived == null) {</span>
+<span class="nc" id="L160">      return listAll().stream()</span>
+<span class="nc" id="L161">          .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L162">          .toList();</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">    } else if (archived) {</span>
+<span class="nc" id="L164">      return list(&quot;archivedAt is not null&quot;).stream()</span>
+<span class="nc" id="L165">          .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L166">          .toList();</span>
+    } else {
+<span class="nc" id="L168">      return list(&quot;archivedAt is null&quot;).stream()</span>
+<span class="nc" id="L169">          .map(DbWarehouse::toWarehouse)</span>
+<span class="nc" id="L170">          .toList();</span>
+    }
+  }
+  
+  // Additional utility methods
+  
+  @Transactional
+  public long countByArchived(Boolean archived) {
+<span class="nc bnc" id="L178" title="All 2 branches missed.">    if (archived == null) {</span>
+<span class="nc" id="L179">      return count();</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">    } else if (archived) {</span>
+<span class="nc" id="L181">      return count(&quot;archivedAt is not null&quot;);</span>
+    } else {
+<span class="nc" id="L183">      return count(&quot;archivedAt is null&quot;);</span>
+    }
+  }
+  
+  @Transactional
+  public boolean existsByBusinessUnitCode(String businessUnitCode) {
+<span class="nc bnc" id="L189" title="All 4 branches missed.">    if (businessUnitCode == null || businessUnitCode.trim().isEmpty()) {</span>
+<span class="nc" id="L190">      return false;</span>
+    }
+<span class="nc bnc" id="L192" title="All 2 branches missed.">    return count(&quot;businessUnitCode&quot;, businessUnitCode) &gt; 0;</span>
+  }
+  
+  @Transactional
+  public Optional&lt;Warehouse&gt; findByBusinessUnitCodeOptional(String buCode) {
+<span class="nc" id="L197">    return Optional.ofNullable(findByBusinessUnitCode(buCode));</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.8.202204050719</span></div></body></html>

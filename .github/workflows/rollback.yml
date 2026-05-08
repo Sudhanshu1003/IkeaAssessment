@@ -1,0 +1,52 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      previous_version:
+        description: 'Previous version to rollback to'
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        echo "🔧 Configuring kubectl for ${{ github.event.inputs.environment }}"
+        # Add your kubectl configuration here
+
+    - name: Rollback deployment
+      run: |
+        echo "🔄 Rolling back ${{ github.event.inputs.environment }} to version ${{ github.event.inputs.previous_version }}"
+        # Add rollback commands here
+        # For example: kubectl rollout undo deployment/warehouse-api --to-revision=${{ github.event.inputs.previous_version }}
+
+    - name: Verify rollback
+      run: |
+        echo "🔍 Verifying rollback was successful"
+        # Add verification commands here
+
+    - name: Notify rollback
+      run: |
+        echo "📢 Rollback completed for ${{ github.event.inputs.environment }}"
+        # Add notification commands here

@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warehouse-api-staging
+  namespace: staging
+  labels:
+    app: warehouse-api
+    environment: staging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: warehouse-api
+      environment: staging
+  template:
+    metadata:
+      labels:
+        app: warehouse-api
+        environment: staging
+    spec:
+      containers:
+      - name: warehouse-api
+        image: ghcr.io/your-username/warehouse-app:staging
+        ports:
+        - containerPort: 8080
+        env:
+        - name: QUARKUS_PROFILE
+          value: "staging"
+        - name: QUARKUS_DATASOURCE_JDBC_URL
+          valueFrom:
+            secretKeyRef:
+              name: warehouse-db-secret-staging
+              key: jdbc-url
+        - name: QUARKUS_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: warehouse-db-secret-staging
+              key: username
+        - name: QUARKUS_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: warehouse-db-secret-staging
+              key: password
+        - name: QUARKUS_HTTP_HOST
+          value: "0.0.0.0"
+        - name: QUARKUS_LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: warehouse-api-service-staging
+  namespace: staging
+spec:
+  selector:
+    app: warehouse-api
+    environment: staging
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: warehouse-api-ingress-staging
+  namespace: staging
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  tls:
+  - hosts:
+    - staging.warehouse-api.example.com
+    secretName: warehouse-api-tls-staging
+  rules:
+  - host: staging.warehouse-api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: warehouse-api-service-staging
+            port:
+              number: 80

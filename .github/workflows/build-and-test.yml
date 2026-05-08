@@ -1,0 +1,155 @@
+name: Build and Test Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Build and Test with Coverage
+  build-test-coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Clean and compile
+      run: ./mvnw clean compile
+
+    - name: Run tests with JaCoCo coverage
+      run: ./mvnw clean test jacoco:report
+
+    - name: Verify JaCoCo report generation
+      run: |
+        echo "🔍 Verifying JaCoCo report files..."
+        if [ -f "target/site/jacoco/jacoco.xml" ]; then
+          echo "✅ JaCoCo XML report generated"
+        else
+          echo "❌ JaCoCo XML report not found"
+          exit 1
+        fi
+        
+        if [ -f "target/site/jacoco/index.html" ]; then
+          echo "✅ JaCoCo HTML report generated"
+        else
+          echo "❌ JaCoCo HTML report not found"
+          exit 1
+        fi
+        
+        if [ -f "target/site/jacoco/jacoco.csv" ]; then
+          echo "✅ JaCoCo CSV report generated"
+        else
+          echo "❌ JaCoCo CSV report not found"
+          exit 1
+        fi
+
+    - name: Extract coverage percentage
+      run: |
+        echo "📊 Extracting coverage percentage..."
+        COVERAGE=$(grep -o 'Total.*[0-9]\+%' target/site/jacoco/index.html | grep -o '[0-9]\+' | head -1)
+        echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
+        echo "📈 Current coverage: ${COVERAGE}%"
+
+    - name: Check 80% coverage threshold
+      run: |
+        echo "🎯 Checking 80% coverage threshold..."
+        if [ "${{ env.COVERAGE }}" -lt 80 ]; then
+          echo "❌ FAILED: Coverage below 80% (current: ${{ env.COVERAGE }}%)"
+          echo ""
+          echo "📋 Coverage Details:"
+          echo "=================="
+          if [ -f "target/site/jacoco/jacoco.csv" ]; then
+            echo "📊 Coverage by Component:"
+            cat target/site/jacoco/jacoco.csv | head -10
+            echo ""
+            echo "📈 Total Coverage: ${{ env.COVERAGE }}%"
+            echo "🎯 Required Coverage: 80%"
+            echo "❌ Gap: $((80 - ${{ env.COVERAGE }}))%"
+          fi
+          exit 1
+        else
+          echo "✅ PASSED: Coverage meets 80% threshold (current: ${{ env.COVERAGE }}%)"
+        fi
+
+    - name: Generate test report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Maven Unit Tests
+        path: target/surefire-reports/*.xml
+        reporter: java-junit
+
+    - name: Upload JaCoCo coverage report as GitHub artifact
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: jacoco-coverage-report
+        path: target/site/jacoco/
+        retention-days: 30
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          target/surefire-reports/
+          target/failsafe-reports/
+        retention-days: 7
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: target/site/jacoco/jacoco.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Build application package
+      run: ./mvnw package -DskipTests
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: |
+          target/*.jar
+          target/quarkus-app/
+        retention-days: 7
+
+    - name: Coverage Summary
+      if: always()
+      run: |
+        echo "📊 Coverage Summary Report"
+        echo "========================"
+        echo "🎯 Target Coverage: 80%"
+        echo "📈 Actual Coverage: ${{ env.COVERAGE }}%"
+        if [ "${{ env.COVERAGE }}" -ge 80 ]; then
+          echo "✅ Status: PASSED"
+        else
+          echo "❌ Status: FAILED"
+        fi
+        echo ""
+        echo "📋 Detailed Coverage Information:"
+        if [ -f "target/site/jacoco/jacoco.csv" ]; then
+          echo "Top 10 classes by coverage:"
+          head -11 target/site/jacoco/jacoco.csv | tail -10
+        fi

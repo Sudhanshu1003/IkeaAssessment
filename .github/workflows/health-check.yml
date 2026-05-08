@@ -1,0 +1,41 @@
+name: Health Check
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:
+
+jobs:
+  health-check-staging:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+    - name: Health check staging
+      run: |
+        echo "🔍 Checking staging environment health"
+        # Add health check commands here
+        # For example: curl -f https://staging.warehouse-api.example.com/q/health
+
+    - name: Alert if unhealthy
+      if: failure()
+      run: |
+        echo "🚨 Staging environment is unhealthy!"
+        # Add alerting commands here
+
+  health-check-production:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Health check production
+      run: |
+        echo "🔍 Checking production environment health"
+        # Add health check commands here
+        # For example: curl -f https://api.warehouse.example.com/q/health
+
+    - name: Alert if unhealthy
+      if: failure()
+      run: |
+        echo "🚨 Production environment is unhealthy!"
+        # Add alerting commands here

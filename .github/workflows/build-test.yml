@@ -1,0 +1,75 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Build project
+      run: ./mvnw clean compile
+
+    - name: Run tests
+      run: ./mvnw test
+
+    - name: Generate JaCoCo coverage report
+      run: ./mvnw jacoco:report
+
+    - name: Check coverage (80% threshold)
+      run: |
+        echo "🔍 Checking JaCoCo coverage..."
+        if [ -f "target/site/jacoco/jacoco.xml" ]; then
+          COVERAGE=$(grep -o 'Total.*[0-9]\+%' target/site/jacoco/index.html | grep -o '[0-9]\+' | head -1)
+          echo "📊 Current coverage: ${COVERAGE}%"
+          
+          if [ "${COVERAGE}" -lt 80 ]; then
+            echo "❌ Coverage below 80% threshold (current: ${COVERAGE}%)"
+            exit 1
+          else
+            echo "✅ Coverage meets 80% threshold (current: ${COVERAGE}%)"
+          fi
+        else
+          echo "❌ JaCoCo report not found"
+          exit 1
+        fi
+
+    - name: Upload JaCoCo coverage report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: jacoco-report
+        path: target/site/jacoco/
+        retention-days: 30
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: target/surefire-reports/
+        retention-days: 7
+
+    - name: Build package
+      run: ./mvnw package -DskipTests
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-artifacts
+        path: target/*.jar
+        retention-days: 7
